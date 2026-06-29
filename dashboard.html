@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Dashboard | AirAsia DC</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <script>
+    tailwind.config = { 
+      theme: { 
+        extend: { 
+          colors: { aaRed: '#E32526', aaBg: '#f4f5f7' }, 
+          fontFamily: { sans: ['Inter', 'sans-serif'] } 
+        } 
+      } 
+    }
+  </script>
+  
+  <style>
+    body { background-color: var(--aaBg); }
+    .animate-slide-up { animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }
+    @keyframes slideUp { to { transform: translateY(0); opacity: 1; } }
+    
+    .task-card { transition: all 0.25s ease; border-left: 4px solid #E32526; }
+    .task-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1); border-left-color: #b91c1c; }
+    
+    .input-field { border-bottom-width: 1.5px; border-color: #e5e7eb; transition: border-color 0.2s; background: transparent; padding-left: 4px;}
+    .input-field:focus { outline: none; border-color: #E32526; }
+    .locked-input { background-color: #f3f4f6; color: #6b7280; padding: 10px 15px; border-radius: 6px; cursor: not-allowed; border: 1px solid #e5e7eb;}
+    
+    .loader { border-top-color: #E32526; -webkit-animation: spinner 1s linear infinite; animation: spinner 1s linear infinite; }
+    @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="text-gray-800 font-sans pb-16 antialiased" onload="fetchPendingTasks()">
+  
+  <div id="hubView" class="max-w-3xl mx-auto mt-10 px-4 animate-slide-up block">
+    <div class="bg-white rounded-t-xl shadow-md border border-gray-200 overflow-hidden border-b-0 relative z-10">
+      <div class="h-1.5 w-full bg-aaRed"></div>
+      <div class="p-8 text-center pb-6 flex flex-col items-center">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/AirAsia_New_Logo.svg/330px-AirAsia_New_Logo.svg.png" alt="AirAsia Logo" class="h-10 mb-4 object-contain">
+        <h3 class="text-2xl font-bold tracking-tight text-gray-900">My Pending Documents</h3>
+        <div class="mt-3 inline-flex items-center bg-red-50 border border-red-100 px-4 py-1.5 rounded-full">
+          <svg class="w-4 h-4 text-aaRed mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+          <span class="text-sm text-gray-600 font-medium">Logged in as: <strong class="text-aaRed"><?= userEmail ?></strong></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-b-xl shadow-md border border-gray-200 p-6 md:p-8 relative z-0 -mt-1 min-h-[350px]">
+      
+      <div id="loadingState" class="py-16 text-center">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10 mx-auto mb-4"></div>
+        <p class="text-gray-500 font-medium">Checking your pending documents...</p>
+      </div>
+
+      <div id="taskSection" class="hidden">
+        <div class="flex justify-between items-center mb-6 pb-3 border-b border-gray-100">
+          <h4 class="font-bold text-gray-800 text-lg">Action Required <span id="taskCount" class="ml-2 bg-aaRed text-white text-xs px-2.5 py-1 rounded-full">0</span></h4>
+        </div>
+        <div id="taskList" class="space-y-4"></div>
+      </div>
+
+      <div id="noTasks" class="hidden text-center py-16 animate-slide-up">
+        <div class="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5">
+          <svg class="w-12 h-12 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <h4 class="text-2xl font-bold text-gray-800 mb-2">All Caught Up!</h4>
+        <p class="text-gray-500">You have successfully acknowledged all required documents.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="formView" class="max-w-xl mx-auto mt-8 md:mt-12 px-4 hidden">
+    <button onclick="cancelForm()" class="mb-4 text-sm font-semibold text-gray-500 hover:text-aaRed transition-colors flex items-center">
+      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+      Back to Dashboard
+    </button>
+
+    <div class="bg-white rounded-t-xl rounded-b-lg shadow-sm border border-gray-200 mb-6 overflow-hidden">
+      <div class="h-1.5 w-full bg-aaRed"></div>
+      <div class="p-8 text-center">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/AirAsia_New_Logo.svg/330px-AirAsia_New_Logo.svg.png" alt="AirAsia Logo" class="h-10 mx-auto mb-5 object-contain">
+        <h3 class="text-2xl font-bold mb-2 tracking-tight">Acknowledgment Report</h3>
+        <p class="text-gray-500 mb-2 text-sm">Document: <span id="formDocNameDisplay" class="font-semibold text-gray-800 text-base block mt-1">...</span></p>
+        <div id="docLinkContainer" class="mt-4 hidden">
+          <a id="formDocLink" href="#" target="_blank" class="inline-block bg-red-50 text-aaRed font-semibold px-6 py-2 rounded-lg border border-red-100 hover:bg-red-100 hover:text-red-700 transition-colors text-sm">
+            📄 Open Document to Review
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <form id="demoForm" onsubmit="event.preventDefault(); submitDemoForm();">
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-3">AirAsia Email (Auto-detected) <span class="text-aaRed">*</span></label>
+        <input type="email" class="w-full locked-input font-medium" value="<?= userEmail ?>" readonly>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-3">Name - Surname (English) <span class="text-aaRed">*</span></label>
+        <input type="text" id="inputName" class="w-full py-2 input-field text-gray-800 font-medium" required placeholder="e.g. Guntrakon Jittaksa">
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-3">TAA ID Number <span class="text-aaRed">*</span></label>
+        <input type="text" id="inputID" class="w-full py-2 input-field text-gray-800 font-medium" required placeholder="e.g. 12345">
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <label class="block text-sm font-semibold text-gray-700 mb-3">Position <span class="text-aaRed">*</span></label>
+        <input type="text" id="inputPos" class="w-full py-2 input-field text-gray-800 font-medium" required placeholder="e.g. Training Specialist">
+      </div>
+
+      <button type="submit" id="btnSubmitForm" class="w-full bg-aaRed hover:bg-red-700 text-white font-bold py-4 rounded-lg shadow-md transition-all duration-200 tracking-wide">
+        Submit Acknowledgment
+      </button>
+    </form>
+  </div>
+
+
+  <script>
+    let pendingDocs = [];
+    let currentIndexToSubmit = -1;
+    let currentDocName = "";
+
+    // 1. เรียกดึงงานคงค้างจากระบบจริงหลังบ้าน
+    function fetchPendingTasks() {
+      document.getElementById('loadingState').style.display = 'block';
+      document.getElementById('taskSection').classList.add('hidden');
+      document.getElementById('noTasks').classList.add('hidden');
+      
+      google.script.run
+        .withSuccessHandler(function(tasks) {
+          document.getElementById('loadingState').style.display = 'none';
+          pendingDocs = tasks; 
+          renderTasks();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('loadingState').innerHTML = `<p class="text-red-500 font-semibold p-4">Error loading tasks: ${error.toString()}</p>`;
+        })
+        .getMyPendingTasks();
+    }
+
+    // 2. เรนเดอร์การ์ดแสดงผลบนหน้าแรก (Hub)
+    function renderTasks() {
+      const taskSection = document.getElementById('taskSection');
+      const taskList = document.getElementById('taskList');
+      const noTasks = document.getElementById('noTasks');
+      
+      if (pendingDocs.length === 0) {
+        taskSection.classList.add('hidden');
+        noTasks.classList.remove('hidden');
+        return;
+      }
+
+      taskSection.classList.remove('hidden');
+      noTasks.classList.add('hidden');
+      document.getElementById('taskCount').innerText = pendingDocs.length;
+      
+      taskList.innerHTML = '';
+
+      pendingDocs.forEach((doc, index) => {
+        const card = document.createElement('div');
+        card.className = "task-card bg-gray-50 border border-gray-200 rounded-lg p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden animate-slide-up";
+        
+        let remarkHtml = doc.remark ? `<p class="text-xs text-aaRed mt-2 bg-red-50 p-2 rounded border border-red-100 max-w-xl"><b>Remark:</b> ${doc.remark}</p>` : '';
+
+        card.innerHTML = `
+          <div class="flex-1 pr-4">
+            <div class="flex items-center mb-1.5">
+              <span class="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Pending</span>
+            </div>
+            <h4 class="font-bold text-gray-800 text-base leading-snug mb-1">${doc.docName}</h4>
+            <p class="text-xs text-gray-500">Please review the document and submit your acknowledgment.</p>
+            ${remarkHtml}
+          </div>
+          <button onclick="openForm(${index})" class="w-full sm:w-auto bg-aaRed hover:bg-red-700 text-white px-6 py-3 rounded-md font-semibold text-sm text-center shadow-sm hover:shadow transition-all whitespace-nowrap flex items-center justify-center gap-2 group">
+            Review & Submit
+            <svg class="w-4 h-4 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </button>
+        `;
+        taskList.appendChild(card);
+      });
+    }
+
+    // 3. เปิดฟอร์มเมื่อคลิกเลือกชิ้นงาน
+    function openForm(index) {
+      currentIndexToSubmit = index;
+      const doc = pendingDocs[index];
+      currentDocName = doc.docName;
+      
+      document.getElementById('formDocNameDisplay').innerText = doc.docName;
+      
+      // ตรวจเช็คลิงก์เปิดอ่าน
+      const linkContainer = document.getElementById('docLinkContainer');
+      if (doc.docLink) {
+        document.getElementById('formDocLink').href = doc.docLink;
+        linkContainer.classList.remove('hidden');
+      } else {
+        linkContainer.classList.add('hidden');
+      }
+
+      // โหลดประวัติที่พนักงานเคยกรอกสำเร็จไว้ใน Local Storage มาแสดง (Auto-fill)
+      if(localStorage.getItem('aa_name')) document.getElementById('inputName').value = localStorage.getItem('aa_name');
+      if(localStorage.getItem('aa_id')) document.getElementById('inputID').value = localStorage.getItem('aa_id');
+      if(localStorage.getItem('aa_pos')) document.getElementById('inputPos').value = localStorage.getItem('aa_pos');
+      
+      // สลับไปแสดงผลฟอร์ม
+      document.getElementById('hubView').classList.replace('block', 'hidden');
+      document.getElementById('formView').classList.replace('hidden', 'block');
+    }
+
+    // 4. ยกเลิกและกดกลับหน้ารวมบอร์ด
+    function cancelForm() {
+      document.getElementById('formView').classList.replace('block', 'hidden');
+      document.getElementById('hubView').classList.replace('hidden', 'block');
+      document.getElementById('demoForm').reset();
+    }
+
+    // 5. ส่งข้อมูลบันทึกสำเร็จจริง
+    function submitDemoForm() {
+      const btn = document.getElementById('btnSubmitForm');
+      btn.disabled = true;
+      btn.innerHTML = `Processing...`;
+
+      const data = {
+        docName: currentDocName,
+        name: document.getElementById('inputName').value.trim(),
+        taaId: document.getElementById('inputID').value.trim(),
+        position: document.getElementById('inputPos').value.trim()
+      };
+
+      // บันทึกเก็บไว้ในเบราว์เซอร์ เพื่อจำค่าในรอบถัดไป
+      localStorage.setItem('aa_name', data.name);
+      localStorage.setItem('aa_id', data.taaId);
+      localStorage.setItem('aa_pos', data.position);
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response === "Success") {
+            // ลบงานชิ้นนี้ออกจากอาเรย์ชั่วคราว
+            pendingDocs.splice(currentIndexToSubmit, 1);
+            
+            document.getElementById('demoForm').reset();
+            btn.disabled = false;
+            btn.innerHTML = `Submit Acknowledgment`;
+            
+            // สลับจอกลับหน้าหลัก
+            document.getElementById('formView').classList.replace('block', 'hidden');
+            document.getElementById('hubView').classList.replace('hidden', 'block');
+            
+            renderTasks();
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Success!',
+              text: 'Your response has been securely recorded.',
+              confirmButtonColor: '#10b981',
+              timer: 2500
+            });
+          } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: response, confirmButtonColor: '#E32526' });
+            btn.disabled = false;
+            btn.innerHTML = `Submit Acknowledgment`;
+          }
+        })
+        .withFailureHandler(function(error) {
+          Swal.fire({ icon: 'error', title: 'Error', text: error.toString(), confirmButtonColor: '#E32526' });
+          btn.disabled = false;
+          btn.innerHTML = `Submit Acknowledgment`;
+        })
+        .saveResponse(data);
+    }
+  </script>
+</body>
+</html>
